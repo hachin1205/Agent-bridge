@@ -5,6 +5,9 @@
     python agent.py --parse-file r.txt  # offline: parse + check one reply
     python agent.py --send 002 KXFED-26DEC "Will the Fed cut in Dec?" "Fed Dec decision" "2026-11-17 18:00 ET"
 
+Grok's links are trusted as given: the agent does not contact X unless you
+opt in with --linkcheck or KTASK_LINKCHECK=1.
+
 Output goes to BLACKBOARD_URL (POST /observations) if set, otherwise it is
 appended to observations.jsonl next to this file.
 """
@@ -27,11 +30,17 @@ HERE = Path(__file__).parent
 OUT = HERE / "observations.jsonl"
 
 
-def process_text(text: str, meta: dict | None = None, check_links: bool = True):
+def linkcheck_enabled() -> bool:
+    return os.environ.get("KTASK_LINKCHECK", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def process_text(text: str, meta: dict | None = None, check_links: bool | None = None):
+    if check_links is None:
+        check_links = linkcheck_enabled()
     obs = parse_reply(text)
     if check_links:
         check_all(obs)
-    judge(obs)
+    judge(obs, links_checked=check_links)
     d = obs.to_dict()
     d.update(effective_confidence=obs.effective_confidence, verdict=obs.verdict,
              received_at=datetime.now(timezone.utc).isoformat(), email=meta or {})
@@ -50,7 +59,7 @@ def publish(record: dict) -> None:
             f.write(json.dumps(record) + "\n")
 
 
-def run_once(svc) -> int:
+def run_once(svc, check_links: bool | None = None) -> int:
     import gmail_io as g
     n = 0
     for tid in g.open_task_threads(svc):
@@ -61,7 +70,7 @@ def run_once(svc) -> int:
         latest = max(replies, key=lambda m: m["internal_ms"])
         meta = {k: latest[k] for k in ("id", "thread_id", "subject", "date")}
         try:
-            rec = process_text(latest["text"], meta)
+            rec = process_text(latest["text"], meta, check_links)
         except ParseError as e:
             rec = {"accepted": False, "verdict": f"unparseable: {e}", "email": meta}
         publish(rec)
@@ -76,12 +85,14 @@ def main():
     ap.add_argument("--once", action="store_true")
     ap.add_argument("--every", type=int)
     ap.add_argument("--parse-file")
-    ap.add_argument("--no-linkcheck", action="store_true")
+    ap.add_argument("--linkcheck", action="store_true",
+                    help="verify each X link via oEmbed (off by default; or set KTASK_LINKCHECK=1)")
     ap.add_argument("--send", nargs=5, metavar=("ID", "TICKER", "QUESTION", "MARKET", "DEADLINE"))
     a = ap.parse_args()
+    check_links = a.linkcheck or linkcheck_enabled()
 
     if a.parse_file:
-        print(json.dumps(process_text(Path(a.parse_file).read_text(), check_links=not a.no_linkcheck), indent=2))
+        print(json.dumps(process_text(Path(a.parse_file).read_text(), check_links=check_links), indent=2))
         return
     import gmail_io as g
     svc = g.service()
@@ -89,7 +100,7 @@ def main():
         print(g.send_task(svc, *a.send))
         return
     while True:
-        run_once(svc)
+        run_once(svc, check_links)
         if not a.every:
             break
         time.sleep(a.every)

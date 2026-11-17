@@ -48,18 +48,44 @@ def test_analyst_only_capped():
 
 
 def test_mostly_dead_links_rejected():
-    o = _obs(["Reuters", "a", "b"], [True, False, False]); judge(o, TRUSTED)
+    o = _obs(["Reuters", "a", "b"], [True, False, False]); judge(o, TRUSTED, links_checked=True)
     assert not o.accepted and "invented" in o.verdict
 
 
 def test_dead_link_dropped_when_minority():
-    o = _obs(["Reuters", "a", "b"], [True, True, False]); judge(o, TRUSTED)
+    o = _obs(["Reuters", "a", "b"], [True, True, False]); judge(o, TRUSTED, links_checked=True)
     assert o.accepted and len(o.evidence) == 2
 
 
 def test_no_live_links_rejected():
-    o = _obs(["Reuters"], [None]); judge(o, TRUSTED)
+    o = _obs(["Reuters"], [None]); judge(o, TRUSTED, links_checked=True)
     assert not o.accepted
+
+
+def test_links_trusted_by_default():
+    o = _obs(["randoguy", "other"], [None, None]); judge(o, TRUSTED)
+    assert o.accepted and o.effective_confidence == 0.4 and len(o.evidence) == 2
+
+
+def test_agent_does_not_fetch_by_default(monkeypatch):
+    import agent
+    monkeypatch.delenv("KTASK_LINKCHECK", raising=False)
+    monkeypatch.setattr(agent, "check_all", lambda obs: pytest.fail("link check ran"))
+    rec = agent.process_text(FIX.read_text())
+    assert rec["accepted"] and rec["effective_confidence"] == 0.4
+
+
+def test_agent_linkcheck_opt_in_env(monkeypatch):
+    import agent
+    called = []
+    def fake(obs):
+        called.append(1)
+        for e in obs.evidence:
+            e.exists = True
+    monkeypatch.setenv("KTASK_LINKCHECK", "1")
+    monkeypatch.setattr(agent, "check_all", fake)
+    rec = agent.process_text(FIX.read_text())
+    assert called and rec["accepted"]
 
 
 def test_nothing_found_is_valid():

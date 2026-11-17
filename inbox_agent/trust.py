@@ -3,9 +3,10 @@
 Rules (all tunable in RULES):
 1. Format errors (missing field, bad LEAN/CONFIDENCE) -> rejected.
 2. "Nothing credible found" (LEAN neutral, CONFIDENCE 0) is accepted with no links.
-3. Otherwise at least one evidence link must be confirmed live.
-4. If more than half of the links are dead, the whole reply is rejected
-   (Grok probably invented them).
+3. Only when the optional link check ran (links_checked=True):
+   at least one evidence link must be confirmed live, and if more than
+   half of the links are dead the whole reply is rejected (Grok probably
+   invented them). By default links are trusted as given.
 5. If no live link is from a trusted account, confidence is capped at
    RULES["untrusted_conf_cap"].
 """
@@ -29,7 +30,7 @@ def load_trusted(path: Path = DEFAULT_PATH) -> dict[str, dict]:
     return {h.lower(): v for h, v in data["accounts"].items()}
 
 
-def judge(obs, trusted: dict[str, dict] | None = None) -> None:
+def judge(obs, trusted: dict[str, dict] | None = None, links_checked: bool = False) -> None:
     """Mutates obs: sets evidence trust fields, obs.accepted, obs.effective_confidence, obs.verdict."""
     trusted = trusted if trusted is not None else load_trusted()
     for ev in obs.evidence:
@@ -48,12 +49,15 @@ def judge(obs, trusted: dict[str, dict] | None = None) -> None:
     if not obs.evidence:
         return _reject(obs, "no evidence links")
 
-    dead = [e for e in obs.evidence if e.exists is False]
-    live = [e for e in obs.evidence if e.exists is True]
-    if len(dead) / len(obs.evidence) > RULES["max_dead_fraction"]:
-        return _reject(obs, f"{len(dead)}/{len(obs.evidence)} links dead, likely invented")
-    if not live:
-        return _reject(obs, "no link could be confirmed live")
+    if links_checked:
+        dead = [e for e in obs.evidence if e.exists is False]
+        live = [e for e in obs.evidence if e.exists is True]
+        if len(dead) / len(obs.evidence) > RULES["max_dead_fraction"]:
+            return _reject(obs, f"{len(dead)}/{len(obs.evidence)} links dead, likely invented")
+        if not live:
+            return _reject(obs, "no link could be confirmed live")
+    else:
+        live = obs.evidence  # Grok's links trusted as given
 
     tiers = {e.trust_tier for e in live}
     if tiers & {"primary", "reporter"}:
