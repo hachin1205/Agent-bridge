@@ -1,0 +1,22 @@
+{
+  "_comment": "X handles the inbox agent trusts. tier: primary (officials, agencies, the source itself), reporter (named journalists, wire services), analyst (known, named domain experts). Edit freely. Handles are matched case-insensitively. Anything not listed is 'unknown': kept, but it can't carry an observation by itself.",
+  "accounts": {
+    "federalreserve": {"tier": "primary", "topics": ["fed", "rates"]},
+    "BLS_gov": {"tier": "primary", "topics": ["cpi", "jobs"]},
+    "WhiteHouse": {"tier": "primary", "topics": ["politics"]},
+    "Kalshi": {"tier": "primary", "topics": ["kalshi"]},
+    "NWS": {"tier": "primary", "topics": ["weather"]},
+    "Reuters": {"tier": "reporter", "topics": []},
+    "AP": {"tier": "reporter", "topics": []},
+    "business": {"tier": "reporter", "topics": [], "_note": "Bloomberg"},
+    "WSJ": {"tier": "reporter", "topics": []},
+    "FT": {"tier": "reporter", "topics": []},
+    "NickTimiraos": {"tier": "reporter", "topics": ["fed", "rates"]},
+    "DecisionDeskHQ": {"tier": "reporter", "topics": ["elections"]},
+    "AP_Politics": {"tier": "reporter", "topics": ["elections", "politics"]},
+    "NateSilver538": {"tier": "analyst", "topics": ["elections"]}
+  },
+  "_suggested_by_grok_unreviewed": [
+    "DataDayPosts", "TheMacroMemo_", "BSteingraeber", "Trader_9Al", "TheMarkShapiro"
+  ]
+}
