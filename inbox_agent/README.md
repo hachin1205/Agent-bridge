@@ -11,7 +11,7 @@ Reads Grok's `Re: [KTASK nnn]` replies in the bridge Gmail inbox, checks them, a
    - Format errors: rejected.
    - "Nothing credible found" (neutral, 0): accepted.
    - Only with the link check on: more than half the links dead is rejected as likely invented, a minority of dead links is dropped, and no link confirmed live is rejected.
-   - No primary or reporter source: confidence capped at 0.4. Analyst sources only: capped at 0.7.
+   - Grok's confidence is used as is. Each link is tagged with its tier from `trusted_accounts.json` (primary, reporter, analyst or unknown) for information only.
 5. **Publish** (`agent.py`): POSTs to `$BLACKBOARD_URL/observations`, or appends to `observations.jsonl`. Then labels the thread `kalshi/done` or `kalshi/rejected`.
 
 The decision agent should use `effective_confidence`, not Grok's raw `confidence`.
@@ -36,6 +36,5 @@ pytest -q tests
 
 ## Known limits
 
-- Confidence is still capped at 0.4 when none of the cited accounts is in `trusted_accounts.json` (0.7 for analysts only). This is separate from the link check.
 - The optional link check needs to reach publish.twitter.com. If X rate-limits it, the links count as "unverified", which ends in rejection.
 - No secrets are in this folder. `credentials.json` and `token.json` are created locally and must not be committed.

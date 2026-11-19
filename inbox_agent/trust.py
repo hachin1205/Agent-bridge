@@ -7,8 +7,8 @@ Rules (all tunable in RULES):
    at least one evidence link must be confirmed live, and if more than
    half of the links are dead the whole reply is rejected (Grok probably
    invented them). By default links are trusted as given.
-5. If no live link is from a trusted account, confidence is capped at
-   RULES["untrusted_conf_cap"].
+5. Grok's CONFIDENCE is used as is. Each link is still tagged with its
+   trust tier from trusted_accounts.json, for information only.
 """
 from __future__ import annotations
 
@@ -17,8 +17,6 @@ from pathlib import Path
 
 RULES = {
     "max_dead_fraction": 0.5,
-    "untrusted_conf_cap": 0.4,
-    "analyst_conf_cap": 0.7,     # only analysts, no primary/reporter source
 }
 
 DEFAULT_PATH = Path(__file__).with_name("trusted_accounts.json")
@@ -63,11 +61,9 @@ def judge(obs, trusted: dict[str, dict] | None = None, links_checked: bool = Fal
     if tiers & {"primary", "reporter"}:
         verdict = "trusted sources"
     elif "analyst" in tiers:
-        obs.effective_confidence = min(obs.confidence, RULES["analyst_conf_cap"])
-        verdict = "analyst sources only, confidence capped"
+        verdict = "analyst sources only"
     else:
-        obs.effective_confidence = min(obs.confidence, RULES["untrusted_conf_cap"])
-        verdict = "no trusted sources, confidence capped"
+        verdict = "no listed sources"
     obs.evidence = [e for e in obs.evidence if e.exists is not False]  # drop dead links
     obs.accepted, obs.verdict = True, verdict
 
